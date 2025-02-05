@@ -1,0 +1,48 @@
+# Ignore environment configuration files
+**/*.env
+
+# Node.js specific
+node_modules/
+package-lock.json
+
+# Flutter specific
+**/build/
+**/.dart_tool/
+**/*.iml
+**/*.ipr
+**/*.iws
+**/.dart_tool/
+**/.flutter-plugins
+**/.flutter-plugins-dependencies
+**/.idea/
+**/.vscode/
+
+# Ignore specific tar files in frontend directory
+frontend/flutter_linux_*.tar.xz
+frontend/flutter_linux_*.tar.xz:Zone.Identifier
+
+# Firebase specific
+**/firebase_debug.log
+
+# General
+**/*.lock
+
+# IDE and OS specific
+**/.DS_Store
+**/Thumbs.db
+
+# Backend specific
+life_app/secret/*
+
+# Flutter SDK related
+frontend/flutter/
+frontend/flutter_*.tar.xz
+
+# Build artifacts
+frontend/life_app_frontend/build/
+
+# General patterns to ignore large files or directories
+**/*.snapshot
+**/*.so
+**/*.jar
+**/bin/cache/
