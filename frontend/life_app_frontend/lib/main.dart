@@ -6,6 +6,10 @@ import 'package:life_app_frontend/screens/login_screen.dart';
 import 'package:life_app_frontend/screens/home_page.dart';
 import 'package:provider/provider.dart';
 import 'package:life_app_frontend/services/auth_provider.dart' as auth_service;
+import 'package:life_app_frontend/themes/theme.dart';
+import 'package:life_app_frontend/screens/ancestors_screen.dart';
+import 'package:life_app_frontend/screens/childhood_screen.dart';
+
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -24,16 +28,16 @@ class MyApp extends StatelessWidget {
     return ChangeNotifierProvider(
       create: (_) => auth_service.AuthProvider(),
       child: MaterialApp(
-        title: 'Life App',
-        theme: ThemeData(
-          colorScheme: ColorScheme.fromSeed(seedColor: Color(0xFF9CAF88)),
-          useMaterial3: true,
-        ),
+        title: 'Lifestory',
+        theme: getAppTheme(),
         debugShowCheckedModeBanner: false,  // Remove the debug banner
-        home: const HomePage(title: 'Life App Home Page'),
+        home: HomePage(title: 'Lifestory'),
         routes: {
           '/register': (context) => RegistrationScreen(),
           '/login': (context) => LoginScreen(),
+          '/ancestors': (context) => const AncestorsScreen(),
+          '/childhood': (context) => const ChildhoodScreen(),
+          // Add more routes as needed
         },
       ),
     );

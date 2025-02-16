@@ -15,6 +15,8 @@ class AuthProvider with ChangeNotifier {
     });
   }
 
+  bool get isUserLoggedIn => _user != null;
+
   Future<void> login(String email, String password) async {
     await firebase_auth.FirebaseAuth.instance.signInWithEmailAndPassword(email: email, password: password);
     _user = firebase_auth.FirebaseAuth.instance.currentUser;
