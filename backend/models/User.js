@@ -13,10 +13,21 @@ const userSchema = new mongoose.Schema({
     required: true,
     unique: true
   },
-  name: {
+  firstName: {
     type: String,
-    required: false
+    required: true
   },
+  lastName: {
+    type: String,
+    required: true
+  },
+  dateOfBirth: {
+    type: Date,
+    required: true
+  },
+  lifeQuestions: { 
+    type: Map, of: String
+  }, 
   // Add other fields as needed
 });
 

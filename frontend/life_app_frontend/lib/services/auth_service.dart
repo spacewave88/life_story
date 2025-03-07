@@ -1,5 +1,6 @@
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:http/http.dart' as http;
+import 'dart:convert';
 
 class AuthService {
   final FirebaseAuth _auth = FirebaseAuth.instance;
@@ -13,8 +14,12 @@ class AuthService {
     return null;
   }
 
-  // Create user profile on backend
-  Future<void> createUserProfile() async {
+  // Create user profile on backend with additional fields
+  Future<void> createUserProfile({
+    required String firstName,
+    required String lastName,
+    required String dateOfBirth,
+  }) async {
     String? idToken = await getIdToken();
     if (idToken != null) {
       final response = await http.post(
@@ -23,9 +28,14 @@ class AuthService {
           'Authorization': 'Bearer $idToken',
           'Content-Type': 'application/json',
         },
+        body: jsonEncode({
+          'firstName': firstName,
+          'lastName': lastName,
+          'dateOfBirth': dateOfBirth,
+        }),
       );
       if (response.statusCode != 201) {
-        throw Exception('Failed to create user profile');
+        throw Exception('Failed to create user profile: ${response.statusCode}');
       }
     } else {
       throw Exception('User not authenticated');

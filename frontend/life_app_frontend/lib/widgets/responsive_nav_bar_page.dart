@@ -10,8 +10,9 @@ class ResponsiveNavBarPage extends StatelessWidget {
   final Widget body;
   final Widget? floatingActionButton;
   final bool hideAuthButtons;
+  final List<Widget>? navbarActions; // Nullable list of actions
 
-  ResponsiveNavBarPage({
+  const ResponsiveNavBarPage({
     Key? key,
     required this.scaffoldKey,
     required this.scrollController,
@@ -20,6 +21,7 @@ class ResponsiveNavBarPage extends StatelessWidget {
     required this.body,
     this.floatingActionButton,
     this.hideAuthButtons = false,
+    this.navbarActions, // Default to null
   }) : super(key: key);
 
   @override
@@ -27,6 +29,13 @@ class ResponsiveNavBarPage extends StatelessWidget {
     final width = MediaQuery.of(context).size.width;
     final bool isLargeScreen = width > 800;
     final bool isUserLoggedIn = Provider.of<AuthProvider>(context).isUserLoggedIn;
+    final String currentRoute = ModalRoute.of(context)?.settings.name ?? '/'; // Default to '/' if null
+
+    // Check if the current page is LaunchPage or QuestionPage
+    final bool isLaunchOrQuestionPage = currentRoute == '/launch' || currentRoute == '/question';
+
+    // Use a safe offset value, defaulting to 0 if not attached
+    final double scrollOffset = scrollController.hasClients ? scrollController.offset : 0.0;
 
     return Theme(
       data: ThemeData.light(),
@@ -36,53 +45,67 @@ class ResponsiveNavBarPage extends StatelessWidget {
           backgroundColor: Colors.transparent,
           elevation: 0,
           titleSpacing: 0,
-          leading: isLargeScreen
+          leading: isLargeScreen || isLaunchOrQuestionPage
               ? null
               : IconButton(
                   icon: const Icon(Icons.menu),
                   onPressed: () => scaffoldKey.currentState?.openDrawer(),
                 ),
-          title: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16.0),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                const Text(
-                  "Logo",
-                  style: TextStyle(
-                      color: Colors.green, fontWeight: FontWeight.bold),
+          title: isLaunchOrQuestionPage && scrollOffset <= 100
+              ? Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 16.0),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      const Text(
+                        "Logo",
+                        style: TextStyle(color: Colors.green, fontWeight: FontWeight.bold),
+                      ),
+                    ],
+                  ),
+                )
+              : Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 16.0),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      const Text(
+                        "Logo",
+                        style: TextStyle(color: Colors.green, fontWeight: FontWeight.bold),
+                      ),
+                      if (isLargeScreen && !(isLaunchOrQuestionPage && scrollOffset > 100))
+                        Expanded(child: _navBarItems(context, isUserLoggedIn)),
+                    ],
+                  ),
                 ),
-                if (isLargeScreen) Expanded(child: _navBarItems(context, isUserLoggedIn))
-              ],
-            ),
-          ),
           actions: [
             if (isUserLoggedIn)
               Padding(
                 padding: const EdgeInsets.only(right: 16.0),
                 child: CircleAvatar(child: _ProfileIcon(onLogout: onLogout)),
               ),
+            if (navbarActions != null && (scrollOffset > 100 || !isLaunchOrQuestionPage)) ...?navbarActions,
           ],
         ),
-        drawer: _drawer(context, isUserLoggedIn),
+        drawer: isLaunchOrQuestionPage ? null : _drawer(context, isUserLoggedIn, currentRoute), // Pass currentRoute
         body: body,
         floatingActionButton: floatingActionButton,
       ),
     );
   }
 
-  Widget _drawer(BuildContext context, bool isUserLoggedIn) => Drawer(
+  Widget _drawer(BuildContext context, bool isUserLoggedIn, String currentRoute) => Drawer(
         child: ListView(
           children: [
             ..._menuItems.map(
               (item) => ListTile(
-                onTap: () {
-                  scaffoldKey.currentState?.openEndDrawer();
-                },
-                title: Text(item),
+                onTap: item == 'Home' && currentRoute != '/home'
+                    ? () => Navigator.pushNamedAndRemoveUntil(context, '/home', (route) => false)
+                    : null, // Disable tap if on HomePage
+                title: currentRoute != '/home' ? Text(item) : null, // Hide Home if on HomePage
               ),
             ),
-            if (!isUserLoggedIn && !hideAuthButtons)
+            if (!isUserLoggedIn && !hideAuthButtons && currentRoute != '/home')
               ListTile(
                 onTap: () {
                   Navigator.pushNamed(context, '/login');
@@ -93,39 +116,47 @@ class ResponsiveNavBarPage extends StatelessWidget {
         ),
       );
 
-  Widget _navBarItems(BuildContext context, bool isUserLoggedIn) => Row(
-        mainAxisAlignment: MainAxisAlignment.end,
-        crossAxisAlignment: CrossAxisAlignment.center,
-        children: [
-          ..._menuItems.map(
-            (item) => InkWell(
-              onTap: () {},
+  Widget _navBarItems(BuildContext context, bool isUserLoggedIn) {
+    final currentRoute = ModalRoute.of(context)?.settings.name;
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.end,
+      crossAxisAlignment: CrossAxisAlignment.center,
+      children: [
+        ..._menuItems.map((item) {
+          if (item == 'Home' && currentRoute == '/home') {
+            return const SizedBox.shrink(); // Hide Home button on HomePage
+          }
+          if (item == 'Home' && currentRoute != '/home') {
+            return InkWell(
+              onTap: () {
+                Navigator.pushNamedAndRemoveUntil(context, '/home', (route) => false);
+              },
               child: Padding(
-                padding: const EdgeInsets.symmetric(
-                    vertical: 24.0, horizontal: 16),
+                padding: const EdgeInsets.symmetric(vertical: 24.0, horizontal: 16),
                 child: Text(
                   item,
                   style: const TextStyle(fontSize: 18),
                 ),
               ),
-            ),
+            );
+          }
+          return const SizedBox.shrink(); // Hide other items if added later
+        }).toList(),
+        if (!isUserLoggedIn && !hideAuthButtons && currentRoute != '/home') ...[
+          ElevatedButton(
+            onPressed: () {
+              Navigator.pushNamed(context, '/login');
+            },
+            child: const Text('Sign In'),
           ),
-          if (!isUserLoggedIn && !hideAuthButtons) ...[
-            ElevatedButton(
-              onPressed: () {
-                Navigator.pushNamed(context, '/login');
-              },
-              child: const Text('Sign In'),
-            ),
-          ],
         ],
-      );
+      ],
+    );
+  }
 }
 
 final List<String> _menuItems = <String>[
-  'About',
-  'Contact',
-  'Help',
+  'Home', // Removed "About", "Contact", and "Help"
 ];
 
 enum Menu { itemOne, itemTwo, itemThree }
