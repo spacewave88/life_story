@@ -2,12 +2,11 @@ import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart' as firebase_auth;
 import 'package:http/http.dart' as http;
 import 'dart:convert';
-import 'package:shared_preferences/shared_preferences.dart'; // For temporary storage
-import 'package:life_app_frontend/services/answers_provider.dart'; // For syncing question answers
+import 'package:life_app_frontend/services/answers_provider.dart';
+import 'package:life_app_frontend/services/shared_preferences.dart';
 
 class AuthProvider with ChangeNotifier {
   firebase_auth.User? _user;
-  final String _tempProfileKey = 'tempProfile'; // Key for shared_preferences
 
   firebase_auth.User? get user => _user;
 
@@ -28,7 +27,7 @@ class AuthProvider with ChangeNotifier {
 
   bool get isUserLoggedIn => _user != null;
 
-  Future<void> login(String email, String password) async {
+  Future<void> login(String email, String password, BuildContext context) async {
     try {
       final userCredential = await firebase_auth.FirebaseAuth.instance.signInWithEmailAndPassword(
         email: email,
@@ -38,24 +37,32 @@ class AuthProvider with ChangeNotifier {
       notifyListeners();
       if (_user != null) {
         await _syncTempProfileToPermanent(_user!.uid);
+        Navigator.pushNamedAndRemoveUntil(context, '/home', (route) => false);
       }
     } catch (e) {
       throw Exception('Login failed: $e');
     }
   }
 
-  Future<void> register(String email, String password, Map<String, dynamic> tempProfile) async {
+  Future<void> register(String email, String password, BuildContext context) async {
     try {
       final userCredential = await firebase_auth.FirebaseAuth.instance.createUserWithEmailAndPassword(
         email: email,
         password: password,
       );
       _user = userCredential.user;
+      if (_user == null) {
+        throw Exception('User creation failed: No user returned');
+      }
       notifyListeners();
-      if (_user != null) {
+
+      final tempProfile = await _loadTempProfile();
+      if (tempProfile.isNotEmpty) {
         await _savePermanentProfile(_user!.uid, tempProfile);
       }
+      Navigator.pushNamedAndRemoveUntil(context, '/home', (route) => false);
     } catch (e) {
+      print('Registration error: $e'); // Log the error for debugging
       throw Exception('Registration failed: $e');
     }
   }
@@ -64,59 +71,65 @@ class AuthProvider with ChangeNotifier {
     await firebase_auth.FirebaseAuth.instance.signOut();
     _user = null;
     notifyListeners();
-    await _clearTempProfile(); // Clear temporary data on logout
+    await _clearTempProfile();
   }
 
   Future<void> _syncTempProfileToPermanent(String uid) async {
     final tempProfile = await _loadTempProfile();
     if (tempProfile.isNotEmpty) {
       await _savePermanentProfile(uid, tempProfile);
-      await _clearTempProfile(); // Clear after syncing
+      await _clearTempProfile();
     }
   }
 
   Future<void> _savePermanentProfile(String uid, Map<String, dynamic> profile) async {
-    final idToken = await _user?.getIdToken();
-    if (idToken != null) {
+    try {
+      final idToken = await _user?.getIdToken();
+      if (idToken == null) {
+        throw Exception('No ID token available');
+      }
+
+      final url = Uri.parse('http://localhost:3000/api/users/$uid/profile');
+      print('Saving profile to: $url with data: $profile'); // Debug log
+
       final response = await http.post(
-        Uri.parse('http://localhost:3000/api/users/$uid/profile'),
+        url,
         headers: {
           'Authorization': 'Bearer $idToken',
           'Content-Type': 'application/json',
         },
         body: jsonEncode(profile),
       );
-      if (response.statusCode != 200) {
-        print('Failed to save permanent profile: ${response.statusCode}');
+
+      if (response.statusCode != 200 && response.statusCode != 201) {
+        print('Failed to save permanent profile: ${response.statusCode} - ${response.body}');
+        throw Exception('Failed to save profile: ${response.statusCode}');
+      } else {
+        print('Profile saved successfully: ${response.body}');
       }
+    } catch (e) {
+      print('Error saving permanent profile: $e');
+      rethrow; // Propagate the error for handling upstream
     }
   }
 
   Future<Map<String, dynamic>> _loadTempProfile() async {
-    final prefs = await SharedPreferences.getInstance();
-    final tempProfileJson = prefs.getString(_tempProfileKey);
-    if (tempProfileJson != null) {
-      return jsonDecode(tempProfileJson) as Map<String, dynamic>;
-    }
-    return {};
+    return await SharedPreferencesService.loadTempProfile();
   }
 
   Future<void> _saveTempProfile(Map<String, dynamic> profile) async {
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setString(_tempProfileKey, jsonEncode(profile));
+    await SharedPreferencesService.saveTempProfile(profile);
   }
 
   Future<void> _clearTempProfile() async {
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.remove(_tempProfileKey);
+    await SharedPreferencesService.clearTempProfile();
   }
 
-  // Helper to sync with AnswersProvider for question answers
   void syncAnswersWithProfile(AnswersProvider answersProvider) {
     final answers = answersProvider.answers;
-    _saveTempProfile(answers); // Save answers as temp profile
+    _saveTempProfile(answers);
     if (_user != null) {
-      _syncTempProfileToPermanent(_user!.uid); // Sync to permanent if logged in
+      _syncTempProfileToPermanent(_user!.uid);
     }
   }
 }

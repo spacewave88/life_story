@@ -6,29 +6,31 @@ const userSchema = new mongoose.Schema({
   uid: {
     type: String,
     required: true,
-    unique: true
+    unique: true,
   },
   email: {
     type: String,
-    required: true,
-    unique: true
+    required: true, 
+    unique: true,
+    sparse: true, // Allows multiple null values
   },
   firstName: {
     type: String,
-    required: true
+    required: false, // Changed to optional
   },
   lastName: {
     type: String,
-    required: true
+    required: false, // Changed to optional
   },
   dateOfBirth: {
     type: Date,
-    required: true
+    required: false, // Changed to optional
   },
-  lifeQuestions: { 
-    type: Map, of: String
-  }, 
-  // Add other fields as needed
+  lifeQuestions: {
+    type: Map,
+    of: String,
+    default: {}, // Matches client data (e.g., {"What is your favorite childhood memory?": "Playing outside"})
+  },
 });
 
 // Export the model

@@ -12,6 +12,7 @@ import 'package:life_app_frontend/services/answers_provider.dart';
 import 'package:life_app_frontend/themes/theme.dart';
 import 'package:life_app_frontend/screens/ancestors_screen.dart';
 import 'package:life_app_frontend/screens/childhood_screen.dart';
+import 'package:life_app_frontend/services/shared_preferences.dart'; // Import for checking completion
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -35,14 +36,14 @@ class MyApp extends StatelessWidget {
       child: MaterialApp(
         title: 'Lifestory',
         theme: getAppTheme().copyWith(
-          scaffoldBackgroundColor: Colors.white, // Consistent white background
+          scaffoldBackgroundColor: Colors.white,
         ),
         debugShowCheckedModeBanner: false,
-        home: const SplashScreen(), // Use SplashScreen as initial page
+        home: const SplashScreen(),
         routes: {
           '/register': (context) => RegistrationScreen(),
           '/login': (context) => LoginScreen(),
-          '/launch': (context) => const LaunchPage(), // Add the missing /launch route
+          '/launch': (context) => const LaunchPage(),
           '/question': (context) => const QuestionPage(),
           '/home': (context) => HomePage(title: 'Lifestory'),
           '/ancestors': (context) => const AncestorsScreen(),
@@ -53,7 +54,6 @@ class MyApp extends StatelessWidget {
   }
 }
 
-// SplashScreen with improved navigation logic
 class SplashScreen extends StatefulWidget {
   const SplashScreen({super.key});
 
@@ -70,9 +70,14 @@ class _SplashScreenState extends State<SplashScreen> {
 
   Future<void> _checkAuthState() async {
     final authProvider = Provider.of<auth_service.AuthProvider>(context, listen: false);
-    await Future.delayed(Duration(seconds: 1)); // Give more time for auth to initialize
+    await Future.delayed(Duration(seconds: 1)); // Ensure auth state is ready
     print('Auth state checked: user = ${authProvider.user?.uid ?? "null"}');
-    if (authProvider.user != null) {
+
+    // Check if questions are completed
+    final bool questionsCompleted = await SharedPreferencesService.areQuestionsCompleted();
+
+    // Redirect logic
+    if (authProvider.user != null || questionsCompleted) {
       Navigator.pushReplacementNamed(context, '/home');
     } else {
       Navigator.pushReplacementNamed(context, '/launch');

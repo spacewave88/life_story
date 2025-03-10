@@ -5,6 +5,7 @@ import 'package:life_app_frontend/services/auth_provider.dart';
 import 'package:life_app_frontend/services/answers_provider.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
+import 'package:life_app_frontend/services/shared_preferences.dart';
 
 class QuestionPage extends StatefulWidget {
   const QuestionPage({super.key});
@@ -50,7 +51,9 @@ class _QuestionPageState extends State<QuestionPage> {
       canContinue = true;
     });
     final answersProvider = Provider.of<AnswersProvider>(context, listen: false);
+    final authProvider = Provider.of<AuthProvider>(context, listen: false);
     answersProvider.updateAnswer(questions[currentQuestionIndex]['question'] as String, answer);
+    authProvider.syncAnswersWithProfile(answersProvider); // Save answers to temp profile
   }
 
   void _nextQuestion() {
@@ -89,7 +92,14 @@ class _QuestionPageState extends State<QuestionPage> {
       print('Saving answers temporarily: $answers');
     }
 
+    // Mark questions as completed
+    await SharedPreferencesService.setQuestionsCompleted(true);
+
     Navigator.pushNamedAndRemoveUntil(context, '/home', (route) => false);
+  }
+
+  void _navigateToLogin() {
+    Navigator.pushNamed(context, '/login');
   }
 
   @override
@@ -107,10 +117,16 @@ class _QuestionPageState extends State<QuestionPage> {
       scaffoldKey: _scaffoldKey,
       title: 'Your Story Questions',
       scrollController: _scrollController,
+      navbarActions: [
+        TextButton(
+          onPressed: _navigateToLogin,
+          child: Text('I Already Have an Account', style: TextStyle(color: Colors.white)),
+        ),
+      ],
       body: Builder(
         builder: (context) {
           return Container(
-            color: Colors.white, // Explicitly match launch_page.dart background
+            color: Colors.white,
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
