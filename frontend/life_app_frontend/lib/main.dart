@@ -9,16 +9,19 @@ import 'package:life_app_frontend/screens/home_page.dart';
 import 'package:provider/provider.dart';
 import 'package:life_app_frontend/services/auth_provider.dart' as auth_service;
 import 'package:life_app_frontend/services/answers_provider.dart';
+import 'package:life_app_frontend/services/chat_provider.dart';
 import 'package:life_app_frontend/themes/theme.dart';
 import 'package:life_app_frontend/screens/ancestors_screen.dart';
 import 'package:life_app_frontend/screens/childhood_screen.dart';
-import 'package:life_app_frontend/services/shared_preferences.dart'; // Import for checking completion
+import 'package:life_app_frontend/services/shared_preferences.dart';
+import 'package:flutter_dotenv/flutter_dotenv.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await Firebase.initializeApp(
     options: DefaultFirebaseOptions.currentPlatform,
   );
+  await dotenv.load(fileName: '.env'); // Load .env from /life_app/frontend/
   print('YES Firebase initialized');
   runApp(const MyApp());
 }
@@ -32,6 +35,7 @@ class MyApp extends StatelessWidget {
       providers: [
         ChangeNotifierProvider(create: (_) => auth_service.AuthProvider()),
         ChangeNotifierProvider(create: (_) => AnswersProvider()),
+        ChangeNotifierProvider(create: (_) => ChatProvider()), // Added ChatProvider
       ],
       child: MaterialApp(
         title: 'Lifestory',
@@ -76,6 +80,9 @@ class _SplashScreenState extends State<SplashScreen> {
     // Check if questions are completed
     final bool questionsCompleted = await SharedPreferencesService.areQuestionsCompleted();
 
+    // Guard against unmounted state before navigation
+    if (!mounted) return;
+
     // Redirect logic
     if (authProvider.user != null || questionsCompleted) {
       Navigator.pushReplacementNamed(context, '/home');
@@ -92,5 +99,11 @@ class _SplashScreenState extends State<SplashScreen> {
         child: CircularProgressIndicator(),
       ),
     );
+  }
+
+  @override
+  void dispose() {
+    // Cancel any pending operations if needed (optional)
+    super.dispose();
   }
 }

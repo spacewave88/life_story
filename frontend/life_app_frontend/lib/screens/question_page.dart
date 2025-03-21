@@ -20,24 +20,52 @@ class _QuestionPageState extends State<QuestionPage> {
 
   final List<Map<String, dynamic>> questions = [
     {
-      'question': 'What is your favorite childhood memory?',
-      'options': ['Playing outside', 'Family vacations', 'Reading books', 'School events']
+      'question': 'What decade were you born?',
+      'options': ['1920s or 1930s', '1940s or 1950s', '1960s or 1970s', '1980s or 1990s', '2000s or later']
     },
     {
-      'question': 'Where were you born?',
-      'options': ['A big city', 'A small town', 'The countryside', 'Overseas']
+      'question': 'Do you have children?',
+      'options': ['Yes', 'No', 'Maybe in the future', 'Prefer not to answer']
     },
     {
-      'question': 'What’s your proudest achievement?',
-      'options': ['Graduating school', 'Starting a family', 'Traveling the world', 'Learning a skill']
+      'question': 'How many different cities have you lived in your life?',
+      'options': ['I have lived in the same place my whole life', '2', '3', '4+']
     },
     {
-      'question': 'What hobby do you enjoy most?',
-      'options': ['Painting', 'Hiking', 'Cooking', 'Playing music']
+      'question': 'Highest degree of education?',
+      'options': ['High School', 'Some College', 'University', 'Graduate School +', 'Prefer not to answer']
     },
     {
-      'question': 'Who has inspired you the most in life?',
-      'options': ['A family member', 'A teacher', 'A celebrity', 'A friend']
+      'question': 'Do you have any siblings?',
+      'options': ['No', 'Yes, brother(s)', 'Yes, sister(s)', 'Yes, brother(s) and sister(s)', 'Prefer not to answer']
+    },
+     {
+      'question': 'Were you the oldest, middle or youngest child?',
+      'options': ['Oldest Child', 'Middle Child', 'Youngest Child', 'Prefer not to answer']
+    },
+      {
+      'question': 'Are you currently in any pain?',
+      'options': ['No', 'Yes, a little', 'Yes, quite a bit', 'Prefer not to answer']
+    },
+     {
+      'question': 'Which best describes where you were born?',
+      'options': ['Countryside', 'Suburb', 'City', 'Other']
+    },
+     {
+      'question': 'Have you ever had a pet?',
+      'options': ['No', 'Yes, and I have one now', 'Yes, in the past', 'Prefer not to answer']
+    },
+     {
+      'question': 'Do you believe in a higher power?',
+      'options': ['Yes, I believe in God', 'Yes, I believe in a higher power', 'Im not sure', 'No, I am atheist', 'Prefer not to answer']
+    },
+     {
+      'question': 'Have you lived overseas?',
+      'options': ['No', 'Yes', 'Prefer not to answer']
+    },
+     {
+      'question': 'How did you hear about us?',
+      'options': ['Family Member', 'Friend', 'Social Media', 'Google search']
     },
   ];
 

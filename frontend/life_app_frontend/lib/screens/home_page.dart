@@ -1,12 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
-import 'package:life_app_frontend/widgets/responsive_nav_bar_page.dart'; // Import the ResponsiveNavBarPage
+import 'package:life_app_frontend/widgets/responsive_nav_bar_page.dart';
 import 'package:provider/provider.dart';
 import 'package:firebase_auth/firebase_auth.dart' as firebase_auth;
-import 'package:life_app_frontend/services/auth_provider.dart'; 
-import 'package:life_app_frontend/services/auth_service.dart'; // Import AuthService
-import 'package:http/http.dart' as http; // Import http package
-import 'dart:convert'; // Import for jsonDecode
+import 'package:life_app_frontend/services/auth_provider.dart';
+import 'package:life_app_frontend/services/auth_service.dart';
+import 'package:http/http.dart' as http;
+import 'dart:convert';
+import 'package:life_app_frontend/services/chat_provider.dart';
+import 'package:life_app_frontend/services/answers_provider.dart';
 
 class HomePage extends StatefulWidget {
   final String title;
@@ -21,12 +23,18 @@ class _HomePageState extends State<HomePage> {
   final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
   final ScrollController _scrollController = ScrollController();
   final AuthService _authService = AuthService();
-  String? _firstName; // Variable to store fetched firstName
+  final TextEditingController _chatController = TextEditingController();
+  String? _firstName;
 
   @override
   void initState() {
     super.initState();
-    _fetchUserProfile(); // Fetch user profile on initialization
+    _fetchUserProfile();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      final chatProvider = Provider.of<ChatProvider>(context, listen: false);
+      final answers = Provider.of<AnswersProvider>(context, listen: false).answers;
+      chatProvider.setInitialPrompt(answers);
+    });
   }
 
   Future<void> _fetchUserProfile() async {
@@ -34,7 +42,6 @@ class _HomePageState extends State<HomePage> {
     final firebase_auth.User? currentUser = authProvider.user;
     if (currentUser != null) {
       try {
-        // Fetch user profile from backend
         await _authService.getUserProfile(currentUser.uid);
         final response = await http.get(
           Uri.parse('http://localhost:3000/api/users/${currentUser.uid}'),
@@ -46,7 +53,7 @@ class _HomePageState extends State<HomePage> {
         if (response.statusCode == 200) {
           final userData = jsonDecode(response.body);
           setState(() {
-            _firstName = userData['user']['firstName']; // Update with fetched firstName
+            _firstName = userData['user']['firstName'];
           });
         } else {
           print('Failed to fetch user profile: ${response.statusCode}');
@@ -65,15 +72,35 @@ class _HomePageState extends State<HomePage> {
       print('Logout error: $e');
     }
   }
+
+  Future<void> _sendChatMessage(ChatProvider chatProvider, AuthProvider authProvider) async {
+    if (_chatController.text.isNotEmpty && authProvider.user != null) {
+      final idToken = await authProvider.user!.getIdToken();
+      if (idToken != null) {
+        await chatProvider.sendMessage(
+          _chatController.text,
+          Provider.of<AnswersProvider>(context, listen: false).answers,
+          authProvider.user!.uid,
+          idToken,
+        );
+        _chatController.clear();
+      } else {
+        print('Failed to get ID token');
+      }
+    }
+  }
+
   @override
   void dispose() {
     _scrollController.dispose();
+    _chatController.dispose();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
     final authProvider = Provider.of<AuthProvider>(context);
+    final chatProvider = Provider.of<ChatProvider>(context);
     final firebase_auth.User? currentUser = authProvider.user;
     final String? logoutMessage = ModalRoute.of(context)?.settings.arguments as String?;
 
@@ -82,52 +109,107 @@ class _HomePageState extends State<HomePage> {
       title: widget.title,
       scrollController: _scrollController,
       onLogout: currentUser != null ? _logout : null,
-      body: Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            if (logoutMessage != null)
-              Padding(
-                padding: const EdgeInsets.all(8.0),
-                child: Text(
-                  logoutMessage,
-                  style: TextStyle(color: Colors.green, fontSize: 16),
-                ),
-              ),
-            currentUser == null
-                ? Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Text(
-                        'Mement - Let your story persevere',
-                        style: GoogleFonts.dancingScript(
-                          textStyle: Theme.of(context).textTheme.titleLarge?.copyWith(
-                                color: Colors.green,
-                                fontWeight: FontWeight.bold,
-                              ),
-                        ),
-                      ),
-                      const SizedBox(height: 16),
-                      ElevatedButton(
-                        onPressed: () {
-                          Navigator.pushNamed(context, '/login');
-                        },
-                        child: Text('Log In'),
-                      ),
-                      const SizedBox(height: 16),
-                      ElevatedButton(
-                        onPressed: () {
-                          Navigator.pushNamed(context, '/register');
-                        },
-                        child: Text('Register'),
-                      ),
-                    ],
-                  )
-                : Text(
-                    'Welcome, ${_firstName ?? "User"}', // Use fetched firstName or fallback to "User"
-                    style: Theme.of(context).textTheme.titleLarge,
+      body: SingleChildScrollView(
+        controller: _scrollController,
+        child: SizedBox(
+          height: MediaQuery.of(context).size.height, // Set a bounded height
+          child: Center(
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                if (logoutMessage != null)
+                  Padding(
+                    padding: const EdgeInsets.all(8.0),
+                    child: Text(
+                      logoutMessage,
+                      style: TextStyle(color: Colors.green, fontSize: 16),
+                    ),
                   ),
-          ],
+                currentUser == null
+                    ? Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Text(
+                            'Mement - Let your story persevere',
+                            style: GoogleFonts.dancingScript(
+                              textStyle: Theme.of(context).textTheme.titleLarge?.copyWith(
+                                    color: Colors.green,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                            ),
+                          ),
+                          const SizedBox(height: 16),
+                          ElevatedButton(
+                            onPressed: () {
+                              Navigator.pushNamed(context, '/login');
+                            },
+                            child: Text('Log In'),
+                          ),
+                          const SizedBox(height: 16),
+                          ElevatedButton(
+                            onPressed: () {
+                              Navigator.pushNamed(context, '/register');
+                            },
+                            child: Text('Register'),
+                          ),
+                        ],
+                      )
+                    : Column(
+                        children: [
+                          Text(
+                            'Welcome, ${_firstName ?? "User"}',
+                            style: Theme.of(context).textTheme.titleLarge,
+                          ),
+                          const SizedBox(height: 20),
+                          Container(
+                            height: 300, // Fixed height for chat area
+                            width: MediaQuery.of(context).size.width * 0.8,
+                            decoration: BoxDecoration(
+                              border: Border.all(color: Colors.grey),
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                            child: ListView.builder(
+                              controller: ScrollController(), // Separate controller for chat
+                              itemCount: chatProvider.messages.length,
+                              itemBuilder: (context, index) {
+                                final message = chatProvider.messages[index];
+                                return ListTile(
+                                  title: Text(
+                                    message['content'],
+                                    style: TextStyle(
+                                      color: message['role'] == 'user' ? Colors.blue : Colors.black,
+                                    ),
+                                  ),
+                                  subtitle: Text(message['role']),
+                                );
+                              },
+                            ),
+                          ),
+                          Padding(
+                            padding: const EdgeInsets.all(8.0),
+                            child: Row(
+                              children: [
+                                Expanded(
+                                  child: TextField(
+                                    controller: _chatController,
+                                    decoration: InputDecoration(
+                                      hintText: 'Share your story...',
+                                      border: OutlineInputBorder(),
+                                    ),
+                                  ),
+                                ),
+                                IconButton(
+                                  icon: Icon(Icons.send),
+                                  onPressed: () => _sendChatMessage(chatProvider, authProvider),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
+              ],
+            ),
+          ),
         ),
       ),
     );
