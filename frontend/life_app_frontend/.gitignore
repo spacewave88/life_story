@@ -1,3 +1,7 @@
+
+# Ignore secrets directories
+secrets/
+.secrets/
 # Ignore .env file
 .env
 
