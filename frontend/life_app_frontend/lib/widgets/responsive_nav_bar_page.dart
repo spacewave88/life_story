@@ -1,3 +1,4 @@
+
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../services/auth_provider.dart';
@@ -10,7 +11,7 @@ class ResponsiveNavBarPage extends StatelessWidget {
   final Widget body;
   final Widget? floatingActionButton;
   final bool hideAuthButtons;
-  final List<Widget>? navbarActions; // Nullable list of actions
+  final List<Widget>? navbarActions;
 
   const ResponsiveNavBarPage({
     Key? key,
@@ -21,7 +22,7 @@ class ResponsiveNavBarPage extends StatelessWidget {
     required this.body,
     this.floatingActionButton,
     this.hideAuthButtons = false,
-    this.navbarActions, // Default to null
+    this.navbarActions,
   }) : super(key: key);
 
   @override
@@ -29,12 +30,10 @@ class ResponsiveNavBarPage extends StatelessWidget {
     final width = MediaQuery.of(context).size.width;
     final bool isLargeScreen = width > 800;
     final bool isUserLoggedIn = Provider.of<AuthProvider>(context).isUserLoggedIn;
-    final String currentRoute = ModalRoute.of(context)?.settings.name ?? '/'; // Default to '/' if null
+    final String currentRoute = ModalRoute.of(context)?.settings.name ?? '/';
 
-    // Check if the current page is LaunchPage or QuestionPage
     final bool isLaunchOrQuestionPage = currentRoute == '/launch' || currentRoute == '/question';
 
-    // Use a safe offset value, defaulting to 0 if not attached
     final double scrollOffset = scrollController.hasClients ? scrollController.offset : 0.0;
 
     return Theme(
@@ -87,7 +86,7 @@ class ResponsiveNavBarPage extends StatelessWidget {
             if (navbarActions != null && (scrollOffset > 100 || !isLaunchOrQuestionPage)) ...?navbarActions,
           ],
         ),
-        drawer: isLaunchOrQuestionPage ? null : _drawer(context, isUserLoggedIn, currentRoute), // Pass currentRoute
+        drawer: isLaunchOrQuestionPage ? null : _drawer(context, isUserLoggedIn, currentRoute),
         body: body,
         floatingActionButton: floatingActionButton,
       ),
@@ -101,8 +100,8 @@ class ResponsiveNavBarPage extends StatelessWidget {
               (item) => ListTile(
                 onTap: item == 'Home' && currentRoute != '/home'
                     ? () => Navigator.pushNamedAndRemoveUntil(context, '/home', (route) => false)
-                    : null, // Disable tap if on HomePage
-                title: currentRoute != '/home' ? Text(item) : null, // Hide Home if on HomePage
+                    : null,
+                title: currentRoute != '/home' ? Text(item) : null,
               ),
             ),
             if (!isUserLoggedIn && !hideAuthButtons && currentRoute != '/home')
@@ -124,7 +123,7 @@ class ResponsiveNavBarPage extends StatelessWidget {
       children: [
         ..._menuItems.map((item) {
           if (item == 'Home' && currentRoute == '/home') {
-            return const SizedBox.shrink(); // Hide Home button on HomePage
+            return const SizedBox.shrink();
           }
           if (item == 'Home' && currentRoute != '/home') {
             return InkWell(
@@ -140,7 +139,7 @@ class ResponsiveNavBarPage extends StatelessWidget {
               ),
             );
           }
-          return const SizedBox.shrink(); // Hide other items if added later
+          return const SizedBox.shrink();
         }).toList(),
         if (!isUserLoggedIn && !hideAuthButtons && currentRoute != '/home') ...[
           ElevatedButton(
@@ -156,7 +155,7 @@ class ResponsiveNavBarPage extends StatelessWidget {
 }
 
 final List<String> _menuItems = <String>[
-  'Home', // Removed "About", "Contact", and "Help"
+  'Home',
 ];
 
 enum Menu { itemOne, itemTwo, itemThree }
@@ -169,32 +168,39 @@ class _ProfileIcon extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return PopupMenuButton<Menu>(
-        icon: const Icon(Icons.person),
-        offset: const Offset(0, 40),
-        onSelected: (Menu item) async {
-          if (item == Menu.itemThree && onLogout != null) {
+      icon: const Icon(Icons.person),
+      offset: const Offset(0, 40),
+      onSelected: (Menu item) async {
+        if (item == Menu.itemThree && onLogout != null) {
+          try {
+            print('Initiating logout'); // Debug log
             await onLogout!();
             Navigator.pushNamedAndRemoveUntil(
               context,
-              '/',
+              '/launch', // Changed to /launch
               (route) => false,
               arguments: 'You have successfully logged out',
             );
+            print('Logout successful, redirected to /launch');
+          } catch (e) {
+            print('Logout error: $e');
           }
-        },
-        itemBuilder: (BuildContext context) => <PopupMenuEntry<Menu>>[
-              const PopupMenuItem<Menu>(
-                value: Menu.itemOne,
-                child: Text('Account'),
-              ),
-              const PopupMenuItem<Menu>(
-                value: Menu.itemTwo,
-                child: Text('Settings'),
-              ),
-              const PopupMenuItem<Menu>(
-                value: Menu.itemThree,
-                child: Text('Sign Out'),
-              ),
-            ]);
+        }
+      },
+      itemBuilder: (BuildContext context) => <PopupMenuEntry<Menu>>[
+        const PopupMenuItem<Menu>(
+          value: Menu.itemOne,
+          child: Text('Account'),
+        ),
+        const PopupMenuItem<Menu>(
+          value: Menu.itemTwo,
+          child: Text('Settings'),
+        ),
+        const PopupMenuItem<Menu>(
+          value: Menu.itemThree,
+          child: Text('Sign Out'),
+        ),
+      ],
+    );
   }
 }

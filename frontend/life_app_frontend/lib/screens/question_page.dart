@@ -1,3 +1,4 @@
+
 import 'package:flutter/material.dart';
 import 'package:life_app_frontend/widgets/responsive_nav_bar_page.dart';
 import 'package:provider/provider.dart';
@@ -24,46 +25,6 @@ class _QuestionPageState extends State<QuestionPage> {
       'options': ['1920s or 1930s', '1940s or 1950s', '1960s or 1970s', '1980s or 1990s', '2000s or later']
     },
     {
-      'question': 'Do you have children?',
-      'options': ['Yes', 'No', 'Maybe in the future', 'Prefer not to answer']
-    },
-    {
-      'question': 'How many different cities have you lived in your life?',
-      'options': ['I have lived in the same place my whole life', '2', '3', '4+']
-    },
-    {
-      'question': 'Highest degree of education?',
-      'options': ['High School', 'Some College', 'University', 'Graduate School +', 'Prefer not to answer']
-    },
-    {
-      'question': 'Do you have any siblings?',
-      'options': ['No', 'Yes, brother(s)', 'Yes, sister(s)', 'Yes, brother(s) and sister(s)', 'Prefer not to answer']
-    },
-     {
-      'question': 'Were you the oldest, middle or youngest child?',
-      'options': ['Oldest Child', 'Middle Child', 'Youngest Child', 'Prefer not to answer']
-    },
-      {
-      'question': 'Are you currently in any pain?',
-      'options': ['No', 'Yes, a little', 'Yes, quite a bit', 'Prefer not to answer']
-    },
-     {
-      'question': 'Which best describes where you were born?',
-      'options': ['Countryside', 'Suburb', 'City', 'Other']
-    },
-     {
-      'question': 'Have you ever had a pet?',
-      'options': ['No', 'Yes, and I have one now', 'Yes, in the past', 'Prefer not to answer']
-    },
-     {
-      'question': 'Do you believe in a higher power?',
-      'options': ['Yes, I believe in God', 'Yes, I believe in a higher power', 'Im not sure', 'No, I am atheist', 'Prefer not to answer']
-    },
-     {
-      'question': 'Have you lived overseas?',
-      'options': ['No', 'Yes', 'Prefer not to answer']
-    },
-     {
       'question': 'How did you hear about us?',
       'options': ['Family Member', 'Friend', 'Social Media', 'Google search']
     },
@@ -80,8 +41,14 @@ class _QuestionPageState extends State<QuestionPage> {
     });
     final answersProvider = Provider.of<AnswersProvider>(context, listen: false);
     final authProvider = Provider.of<AuthProvider>(context, listen: false);
-    answersProvider.updateAnswer(questions[currentQuestionIndex]['question'] as String, answer);
-    authProvider.syncAnswersWithProfile(answersProvider); // Save answers to temp profile
+    // Ensure answer is a string
+    answersProvider.updateAnswer(questions[currentQuestionIndex]['question'] as String, answer.toString());
+    print('Answer selected: ${questions[currentQuestionIndex]['question']} -> $answer'); // Debug log
+    // Validate answers before syncing
+    final validAnswers = Map<String, String>.fromEntries(
+      answersProvider.answers.entries.where((e) => e.key is String && e.value is String),
+    );
+    authProvider.syncAnswersWithProfile(validAnswers);
   }
 
   void _nextQuestion() {
@@ -98,32 +65,44 @@ class _QuestionPageState extends State<QuestionPage> {
 
   Future<void> _saveAnswersAndNavigate() async {
     final answersProvider = Provider.of<AnswersProvider>(context, listen: false);
-    final answers = answersProvider.answers;
+    final answers = Map<String, String>.fromEntries(
+      answersProvider.answers.entries.where((e) => e.key is String && e.value is String),
+    );
+    print('Saving answers: $answers'); // Debug log
 
     final authProvider = Provider.of<AuthProvider>(context, listen: false);
     if (authProvider.user != null) {
-      final idToken = await authProvider.user?.getIdToken();
-      if (idToken != null) {
-        final response = await http.post(
-          Uri.parse('http://localhost:3000/api/users/${authProvider.user!.uid}/answers'),
-          headers: {
-            'Authorization': 'Bearer $idToken',
-            'Content-Type': 'application/json',
-          },
-          body: jsonEncode(answers),
-        );
-        if (response.statusCode != 200) {
-          print('Failed to save answers: ${response.statusCode}');
+      try {
+        final idToken = await authProvider.user?.getIdToken();
+        if (idToken != null) {
+          final response = await http.post(
+            Uri.parse('http://localhost:3000/api/users/${authProvider.user!.uid}/profile'),
+            headers: {
+              'Authorization': 'Bearer $idToken',
+              'Content-Type': 'application/json',
+            },
+            body: jsonEncode({'lifeQuestions': answers}),
+          );
+          if (response.statusCode != 200 && response.statusCode != 201) {
+            print('Failed to save answers permanently: ${response.statusCode} - ${response.body}');
+          } else {
+            print('Answers saved permanently: ${response.body}');
+          }
+        } else {
+          print('No ID token available for authenticated user');
         }
+      } catch (e) {
+        print('Error saving answers to backend: $e');
       }
-    } else {
-      print('Saving answers temporarily: $answers');
     }
 
-    // Mark questions as completed
-    await SharedPreferencesService.setQuestionsCompleted(true);
-
-    Navigator.pushNamedAndRemoveUntil(context, '/home', (route) => false);
+    try {
+      await SharedPreferencesService.saveTempProfile(answers);
+      await SharedPreferencesService.setQuestionsCompleted(true);
+      Navigator.pushNamedAndRemoveUntil(context, '/home', (route) => false);
+    } catch (e) {
+      print('Error saving answers locally or navigating: $e');
+    }
   }
 
   void _navigateToLogin() {
@@ -216,10 +195,7 @@ class _QuestionPageState extends State<QuestionPage> {
                                     color: selectedAnswer == option ? Colors.green : Colors.blue,
                                   ),
                                   const SizedBox(width: 10),
-                                  Text(
-                                    option,
-                                    style: TextStyle(color: Colors.black, fontSize: 16),
-                                  ),
+                                  Text(option, style: TextStyle(color: Colors.black, fontSize: 16)),
                                 ],
                               ),
                             ),
@@ -238,9 +214,7 @@ class _QuestionPageState extends State<QuestionPage> {
                     style: ElevatedButton.styleFrom(
                       backgroundColor: canContinue ? Colors.green : Colors.grey,
                       padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 16),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(8),
-                      ),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
                     ),
                     child: Text(
                       currentQuestionIndex < questions.length - 1 ? 'Continue' : 'Finish',

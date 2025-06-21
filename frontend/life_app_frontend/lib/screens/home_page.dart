@@ -12,7 +12,6 @@ import 'package:life_app_frontend/services/answers_provider.dart';
 
 class HomePage extends StatefulWidget {
   final String title;
-
   const HomePage({Key? key, required this.title}) : super(key: key);
 
   @override
@@ -33,7 +32,8 @@ class _HomePageState extends State<HomePage> {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       final chatProvider = Provider.of<ChatProvider>(context, listen: false);
       final answers = Provider.of<AnswersProvider>(context, listen: false).answers;
-      chatProvider.setInitialPrompt(answers);
+      print('Answers: $answers'); // Debug log to verify answers
+      chatProvider.setInitialPrompt(answers); // Initialize chat with answers
     });
   }
 
@@ -52,9 +52,7 @@ class _HomePageState extends State<HomePage> {
         );
         if (response.statusCode == 200) {
           final userData = jsonDecode(response.body);
-          setState(() {
-            _firstName = userData['user']['firstName'];
-          });
+          setState(() => _firstName = userData['user']['firstName']);
         } else {
           print('Failed to fetch user profile: ${response.statusCode}');
         }
@@ -64,29 +62,31 @@ class _HomePageState extends State<HomePage> {
     }
   }
 
-  Future<void> _logout() async {
-    try {
-      await firebase_auth.FirebaseAuth.instance.signOut();
-      Navigator.pushNamedAndRemoveUntil(context, '/', (route) => false, arguments: 'You have successfully logged out');
-    } catch (e) {
-      print('Logout error: $e');
-    }
+ Future<void> _logout() async {
+  try {
+    final authProvider = Provider.of<AuthProvider>(context, listen: false);
+    await authProvider.logout();
+    Navigator.pushNamedAndRemoveUntil(
+      context,
+      '/launch', // Changed to /launch
+      (route) => false,
+      arguments: 'You have successfully logged out',
+    );
+  } catch (e) {
+    print('Logout error: $e');
   }
+}
 
   Future<void> _sendChatMessage(ChatProvider chatProvider, AuthProvider authProvider) async {
-    if (_chatController.text.isNotEmpty && authProvider.user != null) {
-      final idToken = await authProvider.user!.getIdToken();
-      if (idToken != null) {
-        await chatProvider.sendMessage(
-          _chatController.text,
-          Provider.of<AnswersProvider>(context, listen: false).answers,
-          authProvider.user!.uid,
-          idToken,
-        );
-        _chatController.clear();
-      } else {
-        print('Failed to get ID token');
-      }
+    if (_chatController.text.isNotEmpty) {
+      final idToken = authProvider.user != null ? await authProvider.user!.getIdToken() : '';
+      await chatProvider.sendMessage(
+        _chatController.text,
+        Provider.of<AnswersProvider>(context, listen: false).answers,
+        authProvider.user?.uid ?? 'guest',
+        idToken ?? '',
+      );
+      _chatController.clear();
     }
   }
 
@@ -111,104 +111,87 @@ class _HomePageState extends State<HomePage> {
       onLogout: currentUser != null ? _logout : null,
       body: SingleChildScrollView(
         controller: _scrollController,
-        child: SizedBox(
-          height: MediaQuery.of(context).size.height, // Set a bounded height
-          child: Center(
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                if (logoutMessage != null)
-                  Padding(
-                    padding: const EdgeInsets.all(8.0),
-                    child: Text(
-                      logoutMessage,
-                      style: TextStyle(color: Colors.green, fontSize: 16),
-                    ),
+        child: Center(
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              if (logoutMessage != null)
+                Padding(
+                  padding: const EdgeInsets.all(8.0),
+                  child: Text(
+                    logoutMessage,
+                    style: TextStyle(color: Colors.green, fontSize: 16),
                   ),
-                currentUser == null
-                    ? Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Text(
-                            'Mement - Let your story persevere',
-                            style: GoogleFonts.dancingScript(
-                              textStyle: Theme.of(context).textTheme.titleLarge?.copyWith(
-                                    color: Colors.green,
-                                    fontWeight: FontWeight.bold,
-                                  ),
-                            ),
-                          ),
-                          const SizedBox(height: 16),
-                          ElevatedButton(
-                            onPressed: () {
-                              Navigator.pushNamed(context, '/login');
-                            },
-                            child: Text('Log In'),
-                          ),
-                          const SizedBox(height: 16),
-                          ElevatedButton(
-                            onPressed: () {
-                              Navigator.pushNamed(context, '/register');
-                            },
-                            child: Text('Register'),
-                          ),
-                        ],
-                      )
-                    : Column(
-                        children: [
-                          Text(
-                            'Welcome, ${_firstName ?? "User"}',
-                            style: Theme.of(context).textTheme.titleLarge,
-                          ),
-                          const SizedBox(height: 20),
-                          Container(
-                            height: 300, // Fixed height for chat area
-                            width: MediaQuery.of(context).size.width * 0.8,
-                            decoration: BoxDecoration(
-                              border: Border.all(color: Colors.grey),
-                              borderRadius: BorderRadius.circular(8),
-                            ),
-                            child: ListView.builder(
-                              controller: ScrollController(), // Separate controller for chat
-                              itemCount: chatProvider.messages.length,
-                              itemBuilder: (context, index) {
-                                final message = chatProvider.messages[index];
-                                return ListTile(
-                                  title: Text(
-                                    message['content'],
-                                    style: TextStyle(
-                                      color: message['role'] == 'user' ? Colors.blue : Colors.black,
-                                    ),
-                                  ),
-                                  subtitle: Text(message['role']),
-                                );
-                              },
-                            ),
-                          ),
-                          Padding(
-                            padding: const EdgeInsets.all(8.0),
-                            child: Row(
-                              children: [
-                                Expanded(
-                                  child: TextField(
-                                    controller: _chatController,
-                                    decoration: InputDecoration(
-                                      hintText: 'Share your story...',
-                                      border: OutlineInputBorder(),
-                                    ),
-                                  ),
-                                ),
-                                IconButton(
-                                  icon: Icon(Icons.send),
-                                  onPressed: () => _sendChatMessage(chatProvider, authProvider),
-                                ),
-                              ],
-                            ),
-                          ),
-                        ],
-                      ),
+                ),
+              Text(
+                currentUser == null ? 'Welcome, Guest' : 'Welcome, ${_firstName ?? "User"}',
+                style: Theme.of(context).textTheme.titleLarge,
+              ),
+              const SizedBox(height: 20),
+              if (currentUser == null) ...[
+                ElevatedButton(
+                  onPressed: () => Navigator.pushNamed(context, '/login'),
+                  child: Text('Log In'),
+                ),
+                const SizedBox(height: 16),
+                ElevatedButton(
+                  onPressed: () => Navigator.pushNamed(context, '/register'),
+                  child: Text('Register'),
+                ),
+                const SizedBox(height: 20),
               ],
-            ),
+              ElevatedButton(
+                onPressed: () => Navigator.pushNamed(context, '/story'),
+                child: Text('View My Story'),
+              ),
+              const SizedBox(height: 20),
+              Container(
+                height: MediaQuery.of(context).size.height * 0.4, // Dynamic height (40% of screen)
+                width: MediaQuery.of(context).size.width * 0.8,
+                decoration: BoxDecoration(
+                  border: Border.all(color: Colors.grey),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: chatProvider.messages.isEmpty
+                    ? Center(child: Text('No messages yet. Start chatting!'))
+                    : ListView.builder(
+                        controller: ScrollController(),
+                        itemCount: chatProvider.messages.length,
+                        itemBuilder: (context, index) {
+                          final message = chatProvider.messages[index];
+                          return ListTile(
+                            title: Text(
+                              message['content'],
+                              style: TextStyle(
+                                color: message['role'] == 'user' ? Colors.blue : Colors.black,
+                              ),
+                            ),
+                            subtitle: Text(message['role']),
+                          );
+                        },
+                      ),
+              ),
+              Padding(
+                padding: const EdgeInsets.all(8.0),
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: TextField(
+                        controller: _chatController,
+                        decoration: InputDecoration(
+                          hintText: 'Share your story...',
+                          border: OutlineInputBorder(),
+                        ),
+                      ),
+                    ),
+                    IconButton(
+                      icon: Icon(Icons.send),
+                      onPressed: () => _sendChatMessage(chatProvider, authProvider),
+                    ),
+                  ],
+                ),
+              ),
+            ],
           ),
         ),
       ),

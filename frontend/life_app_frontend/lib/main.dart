@@ -15,6 +15,8 @@ import 'package:life_app_frontend/screens/ancestors_screen.dart';
 import 'package:life_app_frontend/screens/childhood_screen.dart';
 import 'package:life_app_frontend/services/shared_preferences.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
+import 'package:life_app_frontend/screens/story_page.dart';
+import 'package:life_app_frontend/services/story_provider.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -36,6 +38,7 @@ class MyApp extends StatelessWidget {
         ChangeNotifierProvider(create: (_) => auth_service.AuthProvider()),
         ChangeNotifierProvider(create: (_) => AnswersProvider()),
         ChangeNotifierProvider(create: (_) => ChatProvider()), // Added ChatProvider
+        ChangeNotifierProvider(create: (_) => StoryProvider()),
       ],
       child: MaterialApp(
         title: 'Lifestory',
@@ -52,6 +55,7 @@ class MyApp extends StatelessWidget {
           '/home': (context) => HomePage(title: 'Lifestory'),
           '/ancestors': (context) => const AncestorsScreen(),
           '/childhood': (context) => const ChildhoodScreen(),
+          '/story': (context) => const StoryPage(),
         },
       ),
     );

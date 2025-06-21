@@ -1,10 +1,14 @@
+
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
-import 'package:firebase_auth/firebase_auth.dart';
 import 'package:life_app_frontend/widgets/responsive_nav_bar_page.dart';
-import '../services/auth_service.dart';
+import 'package:provider/provider.dart';
+import 'package:life_app_frontend/services/auth_provider.dart' as CustomAuth;
+import 'package:life_app_frontend/services/answers_provider.dart';
 
 class RegistrationScreen extends StatefulWidget {
+  const RegistrationScreen({super.key});
+
   @override
   _RegistrationScreenState createState() => _RegistrationScreenState();
 }
@@ -16,7 +20,6 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
   final _dobController = TextEditingController();
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
-  final AuthService _authService = AuthService();
   bool _passwordVisible = false;
 
   @override
@@ -32,27 +35,27 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
   Future<void> _registerUser() async {
     if (_formKey.currentState!.validate()) {
       try {
-        await FirebaseAuth.instance.createUserWithEmailAndPassword(
-          email: _emailController.text.trim(),
-          password: _passwordController.text.trim(),
+        final authProvider = Provider.of<CustomAuth.AuthProvider>(context, listen: false);
+        await authProvider.register(
+          _emailController.text.trim(),
+          _passwordController.text.trim(),
+          _firstNameController.text.trim(),
+          _lastNameController.text.trim(),
+          _dobController.text.trim(),
         );
-        // Pass the new fields to createUserProfile
-        await _authService.createUserProfile(
-          firstName: _firstNameController.text.trim(),
-          lastName: _lastNameController.text.trim(),
-          dateOfBirth: _dobController.text.trim(),
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Registration successful')),
         );
-        ScaffoldMessenger.of(context)
-            .showSnackBar(SnackBar(content: Text('Registration successful')));
         Navigator.pushNamedAndRemoveUntil(
           context,
-          '/',
+          '/home',
           (route) => false,
           arguments: 'Registration Successful',
         );
       } catch (e) {
         ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('Registration failed: $e')));
+          SnackBar(content: Text('Registration failed: $e')),
+        );
       }
     }
   }
@@ -180,7 +183,6 @@ class _RegistrationFormContent extends StatelessWidget {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            // New fields: First Name, Last Name, Date of Birth
             TextFormField(
               controller: firstNameController,
               decoration: const InputDecoration(
@@ -222,12 +224,15 @@ class _RegistrationFormContent extends StatelessWidget {
                 if (value == null || value.isEmpty) {
                   return 'Please enter your date of birth';
                 }
-                // Optionally: Add date format validation here.
+                // Basic date format validation
+                final datePattern = RegExp(r'^\d{2}/\d{2}/\d{4}$');
+                if (!datePattern.hasMatch(value)) {
+                  return 'Please use MM/DD/YYYY format';
+                }
                 return null;
               },
             ),
             const SizedBox(height: 16),
-            // Email Field
             TextFormField(
               controller: emailController,
               decoration: const InputDecoration(
@@ -240,12 +245,14 @@ class _RegistrationFormContent extends StatelessWidget {
                 if (value == null || value.isEmpty) {
                   return 'Please enter your email';
                 }
-                // Optionally: Add email format validation.
+                final emailPattern = RegExp(r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$');
+                if (!emailPattern.hasMatch(value)) {
+                  return 'Please enter a valid email';
+                }
                 return null;
               },
             ),
             const SizedBox(height: 16),
-            // Password Field
             TextFormField(
               controller: passwordController,
               decoration: InputDecoration(
@@ -270,26 +277,32 @@ class _RegistrationFormContent extends StatelessWidget {
                 if (value.length < 8) {
                   return 'Password must be at least 8 characters';
                 }
-                // Optionally: Add more validations for letters, numbers, special characters, etc.
+                final hasLetter = RegExp(r'[a-zA-Z]').hasMatch(value);
+                final hasNumber = RegExp(r'\d').hasMatch(value);
+                final hasSpecial = RegExp(r'[!@#$%^&*(),.?":{}|<>]').hasMatch(value);
+                final hasUppercase = RegExp(r'[A-Z]').hasMatch(value);
+                final hasLowercase = RegExp(r'[a-z]').hasMatch(value);
+                if (!hasLetter || !hasNumber || !hasSpecial || !hasUppercase || !hasLowercase) {
+                  return 'Password must include letters, numbers, special characters, and both uppercase and lowercase';
+                }
                 return null;
               },
             ),
             const SizedBox(height: 8),
-            // Password Requirements Text
             const Text(
               'At least 8 characters, mix of letters and numbers,\nAt least 1 special character, and at least 1 lowercase and 1 uppercase letter',
               textAlign: TextAlign.center,
               style: TextStyle(fontSize: 12, color: Colors.grey),
             ),
             const SizedBox(height: 16),
-            // Sign Up Button
             SizedBox(
               width: double.infinity,
               child: ElevatedButton(
                 onPressed: onSubmit,
                 style: ElevatedButton.styleFrom(
                   shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(4)),
+                    borderRadius: BorderRadius.circular(4),
+                  ),
                 ),
                 child: const Padding(
                   padding: EdgeInsets.all(10.0),
@@ -301,7 +314,6 @@ class _RegistrationFormContent extends StatelessWidget {
               ),
             ),
             const SizedBox(height: 8),
-            // Terms of Use Disclaimer with Hyperlink style
             Text.rich(
               TextSpan(
                 text: "By submitting, I accept YourStory's ",
@@ -309,16 +321,20 @@ class _RegistrationFormContent extends StatelessWidget {
                 children: <TextSpan>[
                   TextSpan(
                     text: 'terms of use',
-                    style: const TextStyle(fontSize: 10, color: Colors.blue, decoration: TextDecoration.underline),
+                    style: const TextStyle(
+                      fontSize: 10,
+                      color: Colors.blue,
+                      decoration: TextDecoration.underline,
+                    ),
                     recognizer: TapGestureRecognizer()
                       ..onTap = () {
-                        // Handle hyperlink tap. For example, open a URL.
+                        // Handle hyperlink tap (e.g., open terms URL)
                       },
                   ),
                 ],
               ),
               textAlign: TextAlign.center,
-            )
+            ),
           ],
         ),
       ),
